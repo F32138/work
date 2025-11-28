@@ -1,4 +1,11 @@
 cmake_minimum_required(VERSION 3.10)
+
+if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+    set(CMAKE_TOOLCHAIN_FILE
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/toolchains/aarch64.cmake"
+        CACHE FILEPATH "默认交叉编译工具链" FORCE)
+endif()
+
 project(bus_demo CXX)
 
 set(CMAKE_CXX_STANDARD 11)
@@ -7,12 +14,16 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_compile_options(-Wall -Wextra -O2)
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
+include_directories(
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/etl-master/include
+)
 
 set(BUS_SOURCES
     src/Uart.cpp
     src/I2c.cpp
     src/Can.cpp
+    src/Gpio.cpp
 )
 
 # UART demo
@@ -30,5 +41,11 @@ add_executable(i2c_demo
 # CAN demo
 add_executable(can_demo
     src/demo_can.cpp
+    ${BUS_SOURCES}
+)
+
+# GPIO demo
+add_executable(gpio_demo
+    src/demo_gpio.cpp
     ${BUS_SOURCES}
 )

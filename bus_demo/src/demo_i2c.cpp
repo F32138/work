@@ -6,12 +6,11 @@
 
 int main(void)
 {
-    I2c::Config cfg;
-    memset(&cfg, 0, sizeof(cfg));
+    I2c::Config cfg{};
 
     // 根据实际硬件修改总线号
-    strcpy(cfg.device, I2C0_DEVICE);  // 比如 "/dev/i2c0"
-    cfg.addr = 0x48;                   // 从设备地址
+    cfg.device = I2C0_DEVICE;     // 比如 "/dev/i2c0"
+    cfg.addr = 0x48;              // 从设备地址
 
     I2c i2c(cfg);
 
@@ -21,7 +20,7 @@ int main(void)
     }
 
     printf("[I2C] opened %s, addr=0x%02X\n",
-           cfg.device, (unsigned int)cfg.addr);
+           cfg.device.c_str(), (unsigned int)cfg.addr);
 
     // 示例：读取寄存器 0x00
     uint8_t reg  = 0x00;

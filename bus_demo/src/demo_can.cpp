@@ -6,11 +6,10 @@
 
 int main(void)
 {
-    Can::Config cfg;
-    memset(&cfg, 0, sizeof(cfg));
+    Can::Config cfg{};
 
     // CAN 接口名，根据系统中 ip link 看实际是TODO:can0 还是 can1
-    strcpy(cfg.ifName, CAN0_DEVICE);
+    cfg.ifName        = CAN0_DEVICE;
     cfg.loopback      = 0;     // 测试自环可以设为 1
     cfg.recvOwn       = 0;     // 是否接收自己发的帧
     cfg.recvTimeoutMs = 500;   // 接收超时 500 ms
@@ -22,7 +21,7 @@ int main(void)
         return -1;
     }
 
-    printf("[CAN] opened %s\n", cfg.ifName);
+    printf("[CAN] opened %s\n", cfg.ifName.c_str());
 
     // 发送一帧
     Can::Frame tx;

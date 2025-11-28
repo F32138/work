@@ -23,6 +23,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <errno.h>
 #include <termios.h>
 #include <sys/select.h>
 
@@ -30,15 +31,15 @@
  						class definition
 ***************************************************************************/
 Uart::Uart()
+    : m_fd(-1)
+    , m_cfg()
 {
-    m_fd = -1;
-    memset(&m_cfg, 0, sizeof(m_cfg));
 }
 
 Uart::Uart(const Config& cfg)
+    : m_fd(-1)
+    , m_cfg(cfg)
 {
-    m_fd  = -1;
-    m_cfg = cfg;
 }
 
 Uart::~Uart()
@@ -75,15 +76,18 @@ bool Uart::applyTermios()
         return false;
 
     struct termios tio;
-    memset(&tio, 0, sizeof(tio));
+    if (tcgetattr(m_fd, &tio) != 0) {
+        perror("tcgetattr");
+        return false;
+    }
 
     // 设置波特率
-    int speed = baudToConstant(m_cfg.baudrate);
+    const int speed = baudToConstant(m_cfg.baudrate);
     cfsetispeed(&tio, (speed_t)speed);
     cfsetospeed(&tio, (speed_t)speed);
 
     // 本地连接，允许接收
-    tio.c_cflag |= (CLOCAL | CREAD); // CLOCAL为把串口当成“本地设备”用，不依赖调制解调器控制线（DCD/DSR/RI 等）来判定连接状态
+    tio.c_cflag |= (CLOCAL | CREAD);
 
     // 数据位
     tio.c_cflag &= ~CSIZE;
@@ -112,7 +116,6 @@ bool Uart::applyTermios()
         tio.c_cflag |= PARODD;
     }
 
-    // 硬件流控，需首先在设备树中进行配置，然后才能进行软件使能（修改设备树引脚支持硬件流控，查询TL3562-minievm.dts发现uart2默认支持M0模式的TX/RX手法引脚，未启用硬件流控）
 #ifdef CRTSCTS
     if (m_cfg.hardwareFlowControl) {
         tio.c_cflag |= CRTSCTS;
@@ -133,7 +136,6 @@ bool Uart::applyTermios()
     // 清空接收缓冲
     tcflush(m_fd, TCIFLUSH);
 
-    // 设置属性
     if (tcsetattr(m_fd, TCSANOW, &tio) != 0) {
         perror("tcsetattr");
         return false;
@@ -147,8 +149,13 @@ bool Uart::open()
     if (isOpen())
         return true;
 
+    if (m_cfg.device.empty()) {
+        fprintf(stderr, "uart device is empty\n");
+        return false;
+    }
+
     // 非阻塞打开，避免被 modem 信号之类卡住
-    m_fd = ::open(m_cfg.device, O_RDWR | O_NOCTTY | O_NONBLOCK);
+    m_fd = ::open(m_cfg.device.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
     if (m_fd < 0) {
         perror("open uart");
         return false;
@@ -189,24 +196,27 @@ bool Uart::reconfigure(const Config& cfg)
 
 int Uart::write(const uint8_t* data, int len)
 {
-    if (m_fd < 0)
-        return -1;
-    if (data == 0 || len <= 0)
+    if (m_fd < 0 || data == nullptr || len <= 0)
         return -1;
 
-    int ret = (int)::write(m_fd, data, (size_t)len);
-    if (ret < 0) {
-        perror("uart write");
-        return -1;
+    int total = 0;
+    while (total < len) {
+        int ret = (int)::write(m_fd, data + total, (size_t)(len - total));
+        if (ret < 0) {
+            if (errno == EINTR)
+                // 写过程中被信号中断，按 POSIX 约定重试即可
+                continue;
+            perror("uart write");
+            return -1;
+        }
+        total += ret;
     }
-    return ret;
+    return total;
 }
 
-int Uart::read(uint8_t* buf, int maxLen)
+int Uart::read(uint8_t* buf, int maxLen, int readTimeoutMs)
 {
-    if (m_fd < 0)
-        return -1;
-    if (buf == 0 || maxLen <= 0)
+    if (m_fd < 0 || buf == nullptr || maxLen <= 0)
         return -1;
 
     fd_set readfds;
@@ -216,25 +226,38 @@ int Uart::read(uint8_t* buf, int maxLen)
     struct timeval tv;
     struct timeval* ptv = nullptr;
 
-    if (m_cfg.readTimeoutMs > 0) {
-        tv.tv_sec  = m_cfg.readTimeoutMs / 1000;
-        tv.tv_usec = (m_cfg.readTimeoutMs % 1000) * 1000;
+    if (readTimeoutMs > 0) {
+        tv.tv_sec  = readTimeoutMs / 1000;
+        tv.tv_usec = (readTimeoutMs % 1000) * 1000;
         ptv = &tv;
     }
 
     int ret = ::select(m_fd + 1, &readfds, nullptr, nullptr, ptv);
     if (ret < 0) {
+        if (errno == EINTR)
+            // select 同样可能因为信号退出，此时直接返回 0 表示未读到数据
+            return 0;
         perror("select uart");
         return -1;
     } else if (ret == 0) {
-        // 超时，无数据
         return 0;
     }
 
-    int n = (int)::read(m_fd, buf, (size_t)maxLen);
-    if (n < 0) {
-        perror("uart read");
-        return -1;
+    int n = 0;
+    while (n < maxLen) {
+        ret = (int)::read(m_fd, buf + n, (size_t)(maxLen - n));
+        if (ret < 0) {
+            if (errno == EINTR)
+                // read 被信号打断时继续读，避免把中断误报为错误
+                continue;
+            perror("uart read");
+            return -1;
+        }
+        if (ret == 0) {
+            // 已无更多数据，直接返回当前读取量
+            break;
+        }
+        n += ret;
     }
 
     return n;

@@ -29,16 +29,15 @@
  						class definition
 ***************************************************************************/
 I2c::I2c()
+    : m_fd(-1)
+    , m_cfg{}
 {
-    m_fd = -1;
-    memset(&m_cfg, 0, sizeof(m_cfg));
 }
 
 I2c::I2c(const Config& cfg)
+    : m_fd(-1)
+    , m_cfg(cfg)
 {
-    m_fd  = -1;
-    // 结构体内部无动态内存分配，直接拷贝即可（包含 char 数组）
-    m_cfg = cfg;
 }
 
 I2c::~I2c()
@@ -51,8 +50,7 @@ bool I2c::open()
     if (isOpen())
         return true;
 
-    // m_cfg.device 必须是以 '\0' 结尾的 C 字符串
-    m_fd = ::open(m_cfg.device, O_RDWR);
+    m_fd = ::open(m_cfg.device.c_str(), O_RDWR);
     if (m_fd < 0) {
         perror("open i2c");
         return false;

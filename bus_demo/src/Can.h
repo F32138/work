@@ -19,6 +19,7 @@
  							include files
 ***************************************************************************/
 #include <stdint.h>
+#include "etl/string.h"
 
 /***************************************************************************
  						macro definition
@@ -32,10 +33,11 @@
 class Can {
 public:
     struct Config {
-        char ifName[16];       // 接口名，如 "can0"
-        int  loopback;         // 是否打开回环，0 关，非 0 开
-        int  recvOwn;          // 是否接收自己发的帧
-        int  recvTimeoutMs;    // receive() 等待帧的最长时间，（毫秒），<=0 表示一直等
+        etl::string<16> ifName; // 接口名，如 "can0"
+        char buf[16];
+        int  loopback;          // 是否打开回环，0 关，非 0 开
+        int  recvOwn;           // 是否接收自己发的帧
+        int  recvTimeoutMs;     // receive() 等待帧的最长时间，（毫秒），<=0 表示一直等
     };
 
     struct Frame {

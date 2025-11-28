@@ -6,30 +6,29 @@
 
 int main(void)
 {
-    Uart::Config cfg;
-    memset(&cfg, 0, sizeof(cfg));
+    Uart::Config cfg_s9;
+    Uart::Config cfg_s2;
 
-    // 串口设备名
-    strcpy(cfg.device, UART2_DEVICE);   // 根据实际情况改，比如 "/dev/ttyS0"
-    cfg.baudrate = 115200;
-    cfg.dataBits = 8;
-    cfg.stopBits = 1;
-    cfg.parity   = Uart::Parity_None;
-    cfg.hardwareFlowControl = 0;
-    cfg.readTimeoutMs       = 500;      // 读超时 500 ms
+    cfg_s9.device = "/dev/ttyS9";
+    cfg_s2.device = "/dev/ttyS2";
 
-    Uart uart(cfg);
-
-    if (!uart.open()) {
+    Uart uart_s9(cfg_s9);
+    Uart uart_s2(cfg_s2);
+    if (!uart_s2.open()) {
+        printf("[UART] open failed\n");
+        return -1;
+    }
+    if (!uart_s9.open()) {
         printf("[UART] open failed\n");
         return -1;
     }
 
-    printf("[UART] opened %s\n", cfg.device);
+    printf("[UART] opened %s\n", cfg_s9.device.c_str());
+    printf("[UART] opened %s\n", cfg_s2.device.c_str());
 
     // 发送一些数据
     const uint8_t txData[] = { 0x11, 0x22, 0x33, 0x44 };
-    int n = uart.write(txData, (int)sizeof(txData));
+    int n = uart_s9.write(txData, (int)sizeof(txData));
     if (n < 0) {
         printf("[UART] write failed\n");
     } else {
@@ -40,7 +39,7 @@ int main(void)
     uint8_t rxBuf[256];
     memset(rxBuf, 0, sizeof(rxBuf));
 
-    n = uart.read(rxBuf, (int)sizeof(rxBuf));
+    n = uart_s2.read(rxBuf, (int)sizeof(rxBuf), 500);
     if (n > 0) {
         int i;
         printf("[UART] RX %d bytes: [", n);
@@ -55,6 +54,7 @@ int main(void)
         printf("[UART] read failed\n");
     }
 
-    uart.close();
+    uart_s9.close();
+    uart_s2.close();
     return 0;
 }

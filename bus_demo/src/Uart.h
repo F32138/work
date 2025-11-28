@@ -19,6 +19,7 @@
  							include files
 ***************************************************************************/
 #include <stdint.h>
+#include "etl/string.h"
 
 /***************************************************************************
  						macro definition
@@ -38,13 +39,22 @@ public:
     };
 
     struct Config {
-        char  device[32];      // 串口设备路径，例如 "/dev/ttyS2"
-        int   baudrate;        // 例如 115200
-        uint8_t dataBits;      // 5/6/7/8
-        uint8_t stopBits;      // 1 或 2
-        Parity parity;         // 校验
-        int   hardwareFlowControl; // 0: 关闭 RTS/CTS，非 0: 开启
-        int   readTimeoutMs;       // read 超时时间，毫秒，<=0 表示永不超时
+        Config()
+            : device(UART2_DEVICE)
+            , baudrate(115200)
+            , dataBits(8)
+            , stopBits(1)
+            , parity(Parity_None)
+            , hardwareFlowControl(0)
+        {
+        }
+
+        etl::string<32> device;    // 串口设备路径，例如 "/dev/ttyS2"
+        int             baudrate;  // 例如 115200
+        uint8_t         dataBits;  // 5/6/7/8
+        uint8_t         stopBits;  // 1 或 2
+        Parity          parity;    // 校验
+        int             hardwareFlowControl; // 0: 关闭 RTS/CTS，非 0: 开启
     };
 
     Uart();
@@ -65,7 +75,8 @@ public:
     // >0  : 实际读取的字节数
     //  0  : 超时（在 readTimeoutMs 内没有任何数据）
     // <0  : 失败
-    int read(uint8_t* buf, int maxLen);
+    // readTimeoutMs read 超时时间，毫秒，<=0 表示永不超时
+    int read(uint8_t* buf, int maxLen, int readTimeoutMs);
 
 private:
     int    m_fd;

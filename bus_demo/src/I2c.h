@@ -19,6 +19,7 @@
  							include files
 ***************************************************************************/
 #include <stdint.h>
+#include "etl/string.h"
 
 /***************************************************************************
  						macro definition
@@ -34,8 +35,8 @@
 class I2c {
 public:
     struct Config {
-        char    device[32];   // 设备节点路径，如 "/dev/i2c-2"
-        uint8_t addr;         // 从设备地址
+        etl::string<32> device;     // 设备节点路径，如 "/dev/i2c-2"
+        uint8_t addr;               // 从设备地址
     };
 
     I2c();

@@ -34,15 +34,15 @@
  						class definition
 ***************************************************************************/
 Can::Can()
+    : m_fd(-1)
+    , m_cfg{}
 {
-    m_fd = -1;
-    memset(&m_cfg, 0, sizeof(m_cfg));
 }
 
 Can::Can(const Config& cfg)
+    : m_fd(-1)
+    , m_cfg(cfg)
 {
-    m_fd  = -1;
-    m_cfg = cfg;
 }
 
 Can::~Can()
@@ -101,7 +101,7 @@ bool Can::open()
     struct ifreq ifr;
     memset(&ifr, 0, sizeof(ifr));
     // 拷贝接口名
-    strncpy(ifr.ifr_name, m_cfg.ifName, sizeof(ifr.ifr_name) - 1);
+    strncpy(ifr.ifr_name, m_cfg.ifName.c_str(), sizeof(ifr.ifr_name) - 1);
     ifr.ifr_name[sizeof(ifr.ifr_name) - 1] = '\0';
 
     if (ioctl(m_fd, SIOCGIFINDEX, &ifr) < 0) { // ioctl(SIOCGIFINDEX) 把 "can0" 转成内核的接口索引号 ifr.ifr_ifindex
